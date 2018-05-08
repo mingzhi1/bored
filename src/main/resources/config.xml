@@ -1,0 +1,148 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<maven2-moduleset plugin="maven-plugin@3.1">
+    <actions/>
+    <!--描述-->
+    <description></description>
+    <!--保持依赖-->
+    <keepDependencies>false</keepDependencies>
+    <properties>
+        <com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty plugin="gitlab-plugin@1.5.4">
+            <gitLabConnection></gitLabConnection>
+        </com.dabsquared.gitlabjenkins.connection.GitLabConnectionProperty>
+
+        <jenkins.model.BuildDiscarderProperty>
+            <!--Strategy-->
+            <strategy class="hudson.tasks.LogRotator">
+                <!--保持构建的天数 -1是无限制-->
+                <daysToKeep>-1</daysToKeep>
+                <!--保持构建的最大个数-->
+                <numToKeep>3</numToKeep>
+                <artifactDaysToKeep>-1</artifactDaysToKeep>
+                <artifactNumToKeep>-1</artifactNumToKeep>
+            </strategy>
+        </jenkins.model.BuildDiscarderProperty>
+    </properties>
+    <!--源码管理 Git-->
+    <scm class="hudson.plugins.git.GitSCM" plugin="git@3.8.0">
+        <configVersion>2</configVersion>
+        <userRemoteConfigs>
+            <!--Repositories 多个-->
+            <hudson.plugins.git.UserRemoteConfig>
+                <!--Repository URL-->
+                <url>http://git.hzbuvi.com/OmniView-framework/NewRetail.git</url>
+                <!--Credentials-->
+                <credentialsId>fbe2d8fa-d22b-41ff-b659-50812b731ca9</credentialsId>
+            </hudson.plugins.git.UserRemoteConfig>
+        </userRemoteConfigs>
+        <branches>
+            <!--Branches to build-->
+            <hudson.plugins.git.BranchSpec>
+                <!--Branch Specifier (blank for 'any')-->
+                <name>*/master</name>
+            </hudson.plugins.git.BranchSpec>
+        </branches>
+        <doGenerateSubmoduleConfigurations>false</doGenerateSubmoduleConfigurations>
+        <submoduleCfg class="list"/>
+        <extensions/>
+    </scm>
+    <canRoam>true</canRoam>
+    <disabled>false</disabled>
+    <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+    <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+    <triggers/>
+    <concurrentBuild>false</concurrentBuild>
+    <rootModule>
+        <groupId>JA</groupId>
+        <artifactId>service_file</artifactId>
+    </rootModule>
+    <rootPOM>service_file/pom.xml</rootPOM>
+    <goals>clean package</goals>
+    <aggregatorStyleBuild>true</aggregatorStyleBuild>
+    <incrementalBuild>false</incrementalBuild>
+    <ignoreUpstremChanges>true</ignoreUpstremChanges>
+    <ignoreUnsuccessfulUpstreams>false</ignoreUnsuccessfulUpstreams>
+    <archivingDisabled>false</archivingDisabled>
+    <siteArchivingDisabled>false</siteArchivingDisabled>
+    <fingerprintingDisabled>false</fingerprintingDisabled>
+    <resolveDependencies>false</resolveDependencies>
+    <processPlugins>false</processPlugins>
+    <mavenValidationLevel>-1</mavenValidationLevel>
+    <runHeadless>false</runHeadless>
+    <disableTriggerDownstreamProjects>false</disableTriggerDownstreamProjects>
+    <blockTriggerWhenBuilding>true</blockTriggerWhenBuilding>
+    <settings class="jenkins.mvn.FilePathSettingsProvider">
+        <path>/usr/local/maven-3.5.0/conf/settings.xml</path>
+    </settings>
+    <globalSettings class="jenkins.mvn.FilePathGlobalSettingsProvider">
+        <path>/usr/local/maven-3.5.0/conf/settings.xml</path>
+    </globalSettings>
+    <reporters/>
+    <publishers/>
+    <buildWrappers/>
+    <prebuilders>
+        <hudson.tasks.Shell>
+            <command>mvn clean install</command>
+        </hudson.tasks.Shell>
+    </prebuilders>
+    <postbuilders>
+        <hudson.tasks.Shell>
+            <command>#!/bin/bash
+                cd service_file
+                docker rmi -f $(docker images -f &quot;label=newRetail.file&quot; -q)
+                docker build -t newretail.file:v${BUILD_ID} .
+                docker tag newretail.file:v${BUILD_ID} 10.101.0.5:5000/newretail/file:v${BUILD_ID}
+                docker push 10.101.0.5:5000/newretail/file:v${BUILD_ID}
+            </command>
+        </hudson.tasks.Shell>
+        <jenkins.plugins.publish__over__ssh.BapSshBuilderPlugin plugin="publish-over-ssh@1.19.1">
+            <delegate>
+                <consolePrefix>SSH:</consolePrefix>
+                <delegate plugin="publish-over@0.21">
+                    <publishers>
+                        <jenkins.plugins.publish__over__ssh.BapSshPublisher plugin="publish-over-ssh@1.19.1">
+                            <configName>119.28.71.11</configName>
+                            <verbose>false</verbose>
+                            <transfers>
+                                <jenkins.plugins.publish__over__ssh.BapSshTransfer>
+                                    <remoteDirectory></remoteDirectory>
+                                    <sourceFiles></sourceFiles>
+                                    <excludes></excludes>
+                                    <removePrefix></removePrefix>
+                                    <remoteDirectorySDF>false</remoteDirectorySDF>
+                                    <flatten>false</flatten>
+                                    <cleanRemote>false</cleanRemote>
+                                    <noDefaultExcludes>false</noDefaultExcludes>
+                                    <makeEmptyDirs>false</makeEmptyDirs>
+                                    <patternSeparator>[, ]+</patternSeparator>
+                                    <execCommand>docker stop file
+                                        docker rm -f file
+                                        docker rmi -f $(docker images -f &quot;label=newRetail.file&quot; -q)
+                                        docker pull 10.101.0.5:5000/newretail/file:v${BUILD_ID}
+                                        docker run --name file -p 8712:8712 -v /usr/share/nginx/html:/var/file -d
+                                        10.101.0.5:5000/newretail/file:v${BUILD_ID}
+                                    </execCommand>
+                                    <execTimeout>120000</execTimeout>
+                                    <usePty>false</usePty>
+                                    <useAgentForwarding>false</useAgentForwarding>
+                                </jenkins.plugins.publish__over__ssh.BapSshTransfer>
+                            </transfers>
+                            <useWorkspaceInPromotion>false</useWorkspaceInPromotion>
+                            <usePromotionTimestamp>false</usePromotionTimestamp>
+                        </jenkins.plugins.publish__over__ssh.BapSshPublisher>
+                    </publishers>
+                    <continueOnError>false</continueOnError>
+                    <failOnError>false</failOnError>
+                    <alwaysPublishFromMaster>false</alwaysPublishFromMaster>
+                    <hostConfigurationAccess class="jenkins.plugins.publish_over_ssh.BapSshPublisherPlugin"
+                                             reference="../.."/>
+                </delegate>
+            </delegate>
+        </jenkins.plugins.publish__over__ssh.BapSshBuilderPlugin>
+    </postbuilders>
+    <runPostStepsIfResult>
+        <name>SUCCESS</name>
+        <ordinal>0</ordinal>
+        <color>BLUE</color>
+        <completeBuild>true</completeBuild>
+    </runPostStepsIfResult>
+</maven2-moduleset>
